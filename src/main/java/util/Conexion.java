@@ -26,10 +26,9 @@ public class Conexion {
             return ds;
         }
 
-        String url = leer("DB_URL");
+        String url = convertirUrl(leer("DB_URL"));
         if (url == null) {
-            // Render expone PostgreSQL como URL estándar. Convertimos el esquema
-            // postgres:// a JDBC para que también funcione con DATABASE_URL.
+            // Render expone PostgreSQL como URL estándar.
             url = convertirUrl(leer("DATABASE_URL"));
         }
         if (url != null) {
