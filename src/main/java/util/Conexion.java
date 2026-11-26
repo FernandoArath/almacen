@@ -4,6 +4,8 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
@@ -27,9 +29,28 @@ public class Conexion {
         }
 
         String url = convertirUrl(leer("DB_URL"));
+        String usuario = leer("DB_USER");
+        String clave = leer("DB_PASSWORD");
         if (url == null) {
             // Render expone PostgreSQL como URL estándar.
-            url = convertirUrl(leer("DATABASE_URL"));
+            url = leer("DATABASE_URL");
+        }
+        if (url != null) {
+            try {
+                URI uri = new URI(url.startsWith("jdbc:") ? url.substring(5) : url);
+                if (uri.getRawUserInfo() != null) {
+                    String[] credenciales = uri.getRawUserInfo().split(":", 2);
+                    usuario = usuario == null ? decodificar(credenciales[0]) : usuario;
+                    if (credenciales.length > 1 && clave == null) {
+                        clave = decodificar(credenciales[1]);
+                    }
+                    url = new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(),
+                            uri.getPath(), uri.getQuery(), uri.getFragment()).toString();
+                }
+                url = convertirUrl(url);
+            } catch (URISyntaxException e) {
+                throw new SQLException("La URL de conexión PostgreSQL no es válida", e);
+            }
         }
         if (url != null) {
             // Nube (Render) o pruebas con una base remota: pool propio con Hikari
@@ -37,8 +58,6 @@ public class Conexion {
             cfg.setPoolName("PoolAlmacen");
             cfg.setDriverClassName("org.postgresql.Driver");
             cfg.setJdbcUrl(url);
-            String usuario = leer("DB_USER");
-            String clave = leer("DB_PASSWORD");
             if (usuario != null) {
                 cfg.setUsername(usuario);
             }
@@ -62,6 +81,10 @@ public class Conexion {
             }
         }
         return ds;
+    }
+
+    private static String decodificar(String valor) {
+        return java.net.URLDecoder.decode(valor, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static String convertirUrl(String url) {
